@@ -41,7 +41,7 @@ public class AuthController {
             UserRecord userRecord = FirebaseAuth.getInstance().createUser(request);
 
             // ✅ Create user doc in Firestore
-            createUserDoc(userRecord.getUid(), userRecord.getEmail(), userRecord.getDisplayName());
+            createUserDoc(userRecord.getUid(), userRecord.getEmail());
 
             Map<String, Object> response = new HashMap<>();
             response.put("uid", userRecord.getUid());
@@ -55,16 +55,15 @@ public class AuthController {
     }
 
 
-    public void createUserDoc(String uid, String email, String displayName) {
+    public void createUserDoc(String uid, String email) {
         Firestore db = FirestoreClient.getFirestore();
 
         Map<String, Object> userDoc = new HashMap<>();
-        userDoc.put("email", email);
-        userDoc.put("displayName", displayName);
-        userDoc.put("totalScore", 0);
+        userDoc.put("user", email);
+        userDoc.put("earnedScore", 0);
         userDoc.put("createdAt", Instant.now().toString());
         userDoc.put("updatedAt", Instant.now().toString());
-        db.collection("users").document(uid).set(userDoc);
+        db.collection("races").document(uid).set(userDoc);
     }
 
     @Autowired

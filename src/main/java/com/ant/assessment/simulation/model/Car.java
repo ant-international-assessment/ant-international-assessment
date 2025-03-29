@@ -9,6 +9,7 @@ public class Car {
     private int position;
     private String status;
     private boolean isUser;
+    private String username;
 
     public Car() {}
 

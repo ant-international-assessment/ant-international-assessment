@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
@@ -62,8 +63,11 @@ public class RaceService {
         startSignal.countDown();
         finishLatch.await();
         executor.shutdown();
+        afterRaceProcess(carList);
+    }
 
-        // Calculate finish order
+    private void afterRaceProcess(List<Car> carList) {
+        // 1. Sort by position to determine race results
         List<Car> sortedCars = carList.stream()
                 .sorted(Comparator.comparingInt(Car::getPosition).reversed())
                 .collect(Collectors.toList());
@@ -72,22 +76,27 @@ public class RaceService {
                 .map(Car::getName)
                 .collect(Collectors.toList());
 
-        // Find the user car (with isUser = true)
+        // 2. Calculate scores for all cars
+        Map<String, Integer> scoreMap = scoreService.calculateScores(finishOrder);
+
+        // 3. Find the user car
         Car userCar = carList.stream()
-                .filter(Car::isUser)
+                .filter(r -> !r.getUsername().isEmpty())
                 .findFirst()
                 .orElse(null);
 
-        // If user found, update their Firestore score
+        // 4. Save score only for the real user
         if (userCar != null) {
-            String userId = userCar.getName(); // the name is already the email prefix
+            String userId = userCar.getName();
+            int earnedScore = scoreMap.getOrDefault(userId, 0);
             try {
-                scoreService.saveResult(userId, finishOrder);
+                scoreService.saveResult(userId, finishOrder, earnedScore);
             } catch (Exception e) {
                 System.err.println("Error saving user score: " + e.getMessage());
             }
         }
     }
+
 
     private void broadcast(Car car) {
         messagingTemplate.convertAndSend("/topic/car-progress", car);

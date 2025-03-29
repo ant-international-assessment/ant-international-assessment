@@ -6,10 +6,7 @@ import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class ScoreService {
@@ -34,43 +31,54 @@ public class ScoreService {
         return topUsers;
     }
 
+    /**
+     * Calculate race scores for a list of car names in order of finish
+     */
+    public Map<String, Integer> calculateScores(List<String> finishOrder) {
+        Map<String, Integer> scoreMap = new LinkedHashMap<>();
 
-    public void saveResult(String userId, List<String> finishOrder) throws Exception {
-        Firestore db = FirestoreClient.getFirestore();
-
-        // 1. Calculate score for this race
-        int earnedScore = 0;
         for (int i = 0; i < finishOrder.size(); i++) {
+            String carName = finishOrder.get(i);
             int points = Math.max(100 - (i * 10), 0);
-            if (finishOrder.get(i).equalsIgnoreCase(userId)) {
-                earnedScore = points;
-                break;
-            }
+            scoreMap.put(carName, points);
         }
 
-        // 2. Fetch user's current score from Firestore
-        DocumentReference userRef = db.collection("users").document(userId);
-        DocumentSnapshot snapshot = userRef.get().get();
+        return scoreMap;
+    }
 
+    /**
+     * Update Firestore with race result for the user
+     */
+    public void saveResult(String userId, List<String> finishOrder, int earnedScore) throws Exception {
+        Firestore db = FirestoreClient.getFirestore();
+
+        // Step 1: Query all previous races to sum up total score
         int previousScore = 0;
-        if (snapshot.exists() && snapshot.contains("totalScore")) {
-            previousScore = snapshot.getLong("totalScore").intValue();
+
+        ApiFuture<QuerySnapshot> future = db.collection("races")
+                .whereEqualTo("user", userId)
+                .get();
+
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        for (QueryDocumentSnapshot doc : documents) {
+            Long earned = doc.getLong("totalScore");
+            if (earned != null) {
+                previousScore += earned;
+            }
         }
 
         int updatedScore = previousScore + earnedScore;
 
-        // 3. Save updated score back to Firestore
-        Map<String, Object> userData = new HashMap<>();
-        userData.put("totalScore", updatedScore);
-        userRef.set(userData, SetOptions.merge());
-
-        // 4. Save race result separately
+        // Step 2: Save this race result (with totalScore snapshot)
         Map<String, Object> raceData = new HashMap<>();
         raceData.put("user", userId);
         raceData.put("finishOrder", finishOrder);
         raceData.put("earnedScore", earnedScore);
+        raceData.put("totalScore", updatedScore); // ✅ store snapshot
         raceData.put("timestamp", Instant.now().toString());
 
-        db.collection("races").add(raceData);
+        db.collection("races").document(userId).set(raceData);
     }
+
+
 }
