@@ -31,5 +31,6 @@ public class LongestUniqueSubstring {
     public static void main(String[] args) {
         System.out.println(longestUniqueSubstring("java2novice"));
         System.out.println(longestUniqueSubstring("java_language_is_sweet"));
+
     }
 }
