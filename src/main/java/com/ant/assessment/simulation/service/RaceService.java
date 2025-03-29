@@ -20,6 +20,7 @@ public class RaceService {
     @Autowired
     private ScoreService scoreService;
 
+    private final int  DISTANCE = 1000;
     public void startRace(List<Car> carList) throws InterruptedException {
         int numberOfCars = carList.size();
 
@@ -33,7 +34,7 @@ public class RaceService {
         for (Car originalCar : carList) {
             executor.submit(() -> {
                 Car car = new Car(originalCar.getId(), originalCar.getName());
-                car.setUser(originalCar.isUser()); // 👈 ensure user flag is copied
+                car.setUser(originalCar.isUser());
                 readyLatch.countDown();
 
                 try {
@@ -42,13 +43,13 @@ public class RaceService {
                     car.setStatus("RUNNING");
                     broadcast(car);
 
-                    for (int pos = 0; pos < 1000; pos += getRandomNumber(1, 25)) {
+                    for (int pos = 0; pos < DISTANCE; pos += getRandomNumber(1, 25)) {
                         Thread.sleep(100);
                         car.setPosition(pos);
                         broadcast(car);
                     }
 
-                    car.setPosition(1000);
+                    car.setPosition(DISTANCE);
                     car.setStatus("FINISHED");
                     broadcast(car);
 
