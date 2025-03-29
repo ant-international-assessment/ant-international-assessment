@@ -5,14 +5,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 @Service
 public class RaceService {
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    private ScoreService scoreService;
 
     public void startRace(List<Car> carList) throws InterruptedException {
         int numberOfCars = carList.size();
@@ -39,10 +44,12 @@ public class RaceService {
                         broadcast(car);
                     }
 
-                    System.out.println("Car " + car.getName() + " has finished!");
                     car.setPosition(1000);
                     car.setStatus("FINISHED");
                     broadcast(car);
+
+                    originalCar.setPosition(car.getPosition());
+                    originalCar.setStatus("FINISHED");
 
                     finishLatch.countDown();
                 } catch (InterruptedException e) {
@@ -55,6 +62,31 @@ public class RaceService {
         startSignal.countDown();
         finishLatch.await();
         executor.shutdown();
+
+        // Calculate finish order
+        List<Car> sortedCars = carList.stream()
+                .sorted(Comparator.comparingInt(Car::getPosition).reversed())
+                .collect(Collectors.toList());
+
+        List<String> finishOrder = sortedCars.stream()
+                .map(Car::getName)
+                .collect(Collectors.toList());
+
+        // Find the user car (with isUser = true)
+        Car userCar = carList.stream()
+                .filter(Car::isUser)
+                .findFirst()
+                .orElse(null);
+
+        // If user found, update their Firestore score
+        if (userCar != null) {
+            String userId = userCar.getName(); // the name is already the email prefix
+            try {
+                scoreService.saveResult(userId, finishOrder);
+            } catch (Exception e) {
+                System.err.println("Error saving user score: " + e.getMessage());
+            }
+        }
     }
 
     private void broadcast(Car car) {

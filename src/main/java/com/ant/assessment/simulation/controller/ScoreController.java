@@ -9,18 +9,21 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "*") // or specify your frontend domain
 public class ScoreController {
 
     @Autowired
     private ScoreService scoreService;
 
     @PostMapping("/update-score")
-    public void updateScore(@RequestBody List<String> ranking) {
-        scoreService.updateRanking(ranking);
+    public void updateScore(@RequestBody Map<String, Object> body) throws Exception {
+        String userId = (String) body.get("userId");
+        List<String> finishOrder = (List<String>) body.get("finishOrder");
+        scoreService.saveResult(userId, finishOrder);
     }
 
-    @GetMapping("/scores")
-    public Map<String, Integer> getScores() {
-        return scoreService.getAllScores();
+    @GetMapping("/leaderboard")
+    public List<Map<String, Object>> getLeaderboard() throws Exception {
+        return scoreService.getTopScores();
     }
 }
