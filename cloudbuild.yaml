@@ -1,0 +1,13 @@
+steps:
+  - name: gcr.io/cloud-builders/gradle
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        apt-get update && apt-get install -y openjdk-17-jdk
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        java -version
+        ./gradlew build
+
+timeout: 1200s
