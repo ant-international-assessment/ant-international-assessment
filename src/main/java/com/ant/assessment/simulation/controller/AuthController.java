@@ -1,7 +1,8 @@
 package com.ant.assessment.simulation.controller;
 
+import com.ant.assessment.simulation.component.RSAUtil;
 import com.ant.assessment.simulation.service.FirebaseAuthService;
-import com.google.cloud.firestore.DocumentReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.firestore.Firestore;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
@@ -19,14 +20,26 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*") // adjust if needed for frontend domain
+@CrossOrigin(origins = "*")
 public class AuthController {
+
+    @Autowired
+    private FirebaseAuthService firebaseAuthService;
+
+    @Autowired
+    private RSAUtil rsaUtil;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody Map<String, String> body) {
         try {
-            String email = body.get("email");
-            String password = body.get("password");
+            String encrypted = body.get("encrypted");
+            String decryptedJson = rsaUtil.decrypt(encrypted);
+            Map<String, String> decrypted = objectMapper.readValue(decryptedJson, Map.class);
+
+            String email = decrypted.get("email");
+            String password = decrypted.get("password");
 
             if (email == null || password == null || email.isBlank() || password.isBlank()) {
                 return ResponseEntity.badRequest().body("Email or password is missing or empty");
@@ -38,46 +51,30 @@ public class AuthController {
 
             UserRecord userRecord = FirebaseAuth.getInstance().createUser(request);
 
-            // Use email prefix as userId for easier leaderboard linking
             String userId = email.split("@")[0];
             createUserDoc(email);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("uid", userId); // return the readable ID
+            response.put("uid", userId);
             response.put("email", email);
 
             return ResponseEntity.ok(response);
-
         } catch (FirebaseAuthException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to decrypt or parse request");
         }
     }
-
-    public void createUserDoc(String email) {
-        Firestore db = FirestoreClient.getFirestore();
-
-        // Use email prefix (before "@") as document ID
-        String docId = email.split("@")[0];
-
-        Map<String, Object> userDoc = new HashMap<>();
-        userDoc.put("user", email);
-        userDoc.put("totalScore", 0);
-        userDoc.put("createdAt", Instant.now().toString());
-        userDoc.put("updatedAt", Instant.now().toString());
-
-        db.collection("races").document(docId).set(userDoc); // ✅ use email prefix as doc ID
-    }
-
-
-
-    @Autowired
-    private FirebaseAuthService firebaseAuthService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
         try {
-            String email = body.get("email");
-            String password = body.get("password");
+            String encrypted = body.get("encrypted");
+            String decryptedJson = rsaUtil.decrypt(encrypted);
+            Map<String, String> decrypted = objectMapper.readValue(decryptedJson, Map.class);
+
+            String email = decrypted.get("email");
+            String password = decrypted.get("password");
 
             String token = firebaseAuthService.login(email, password);
 
@@ -86,16 +83,15 @@ public class AuthController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Failed to decrypt or authenticate");
         }
     }
 
     @PostMapping("/verify-token")
     public ResponseEntity<?> verifyToken(@RequestBody Map<String, String> body) {
         try {
-            String idToken = body.get("token");
-
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken);
+            String token = body.get("token");
+            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
 
             Map<String, Object> response = new HashMap<>();
             response.put("uid", decodedToken.getUid());
@@ -108,5 +104,16 @@ public class AuthController {
         }
     }
 
+    private void createUserDoc(String email) {
+        Firestore db = FirestoreClient.getFirestore();
+        String docId = email.split("@")[0];
 
+        Map<String, Object> userDoc = new HashMap<>();
+        userDoc.put("user", email);
+        userDoc.put("totalScore", 0);
+        userDoc.put("createdAt", Instant.now().toString());
+        userDoc.put("updatedAt", Instant.now().toString());
+
+        db.collection("races").document(docId).set(userDoc);
+    }
 }
