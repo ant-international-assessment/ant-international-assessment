@@ -1,8 +1,10 @@
 package com.ant.assessment.simulation.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Car {
     private int id;
     private String name;

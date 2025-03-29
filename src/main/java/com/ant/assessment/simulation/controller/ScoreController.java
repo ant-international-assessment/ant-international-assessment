@@ -16,7 +16,7 @@ public class ScoreController {
     private ScoreService scoreService;
 
     @GetMapping("/leaderboard")
-    public List<Map<String, Object>> getLeaderboard() throws Exception {
+    public List<Map<String, Object>> getTopScores() throws Exception {
         return scoreService.getTopScores();
     }
 }

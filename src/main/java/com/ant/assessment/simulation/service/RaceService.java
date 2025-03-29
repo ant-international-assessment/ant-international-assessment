@@ -28,9 +28,12 @@ public class RaceService {
         CountDownLatch finishLatch = new CountDownLatch(numberOfCars);
         ExecutorService executor = Executors.newFixedThreadPool(numberOfCars);
 
+        List<Car> finishOrderList = new CopyOnWriteArrayList<>();
+
         for (Car originalCar : carList) {
             executor.submit(() -> {
                 Car car = new Car(originalCar.getId(), originalCar.getName());
+                car.setUser(originalCar.isUser()); // 👈 ensure user flag is copied
                 readyLatch.countDown();
 
                 try {
@@ -52,6 +55,8 @@ public class RaceService {
                     originalCar.setPosition(car.getPosition());
                     originalCar.setStatus("FINISHED");
 
+                    finishOrderList.add(originalCar);
+
                     finishLatch.countDown();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -63,8 +68,11 @@ public class RaceService {
         startSignal.countDown();
         finishLatch.await();
         executor.shutdown();
-        afterRaceProcess(carList);
+
+        afterRaceProcess(finishOrderList);
     }
+
+
 
     private void afterRaceProcess(List<Car> carList) {
         // 1. Sort by position to determine race results

@@ -1,6 +1,7 @@
 package com.ant.assessment.simulation.controller;
 
 import com.ant.assessment.simulation.service.FirebaseAuthService;
+import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
@@ -27,11 +28,8 @@ public class AuthController {
             String email = body.get("email");
             String password = body.get("password");
 
-            System.out.println("EMAIL = " + email);
-            System.out.println("PASSWORD = " + password);
-
-            if (email == null || password == null) {
-                return ResponseEntity.badRequest().body("Invalid email or password");
+            if (email == null || password == null || email.isBlank() || password.isBlank()) {
+                return ResponseEntity.badRequest().body("Email or password is missing or empty");
             }
 
             UserRecord.CreateRequest request = new UserRecord.CreateRequest()
@@ -40,12 +38,13 @@ public class AuthController {
 
             UserRecord userRecord = FirebaseAuth.getInstance().createUser(request);
 
-            // ✅ Create user doc in Firestore
-            createUserDoc(userRecord.getUid(), userRecord.getEmail());
+            // Use email prefix as userId for easier leaderboard linking
+            String userId = email.split("@")[0];
+            createUserDoc(email);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("uid", userRecord.getUid());
-            response.put("email", userRecord.getEmail());
+            response.put("uid", userId); // return the readable ID
+            response.put("email", email);
 
             return ResponseEntity.ok(response);
 
@@ -54,17 +53,22 @@ public class AuthController {
         }
     }
 
-
-    public void createUserDoc(String uid, String email) {
+    public void createUserDoc(String email) {
         Firestore db = FirestoreClient.getFirestore();
+
+        // Use email prefix (before "@") as document ID
+        String docId = email.split("@")[0];
 
         Map<String, Object> userDoc = new HashMap<>();
         userDoc.put("user", email);
-        userDoc.put("earnedScore", 0);
+        userDoc.put("totalScore", 0);
         userDoc.put("createdAt", Instant.now().toString());
         userDoc.put("updatedAt", Instant.now().toString());
-        db.collection("races").document(uid).set(userDoc);
+
+        db.collection("races").document(docId).set(userDoc); // ✅ use email prefix as doc ID
     }
+
+
 
     @Autowired
     private FirebaseAuthService firebaseAuthService;

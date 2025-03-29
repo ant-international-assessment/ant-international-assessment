@@ -14,7 +14,7 @@ public class ScoreService {
     public List<Map<String, Object>> getTopScores() throws Exception {
         Firestore db = FirestoreClient.getFirestore();
 
-        ApiFuture<QuerySnapshot> future = db.collection("users")
+        ApiFuture<QuerySnapshot> future = db.collection("races")
                 .orderBy("totalScore", Query.Direction.DESCENDING)
                 .limit(10)
                 .get();
