@@ -24,16 +24,15 @@ public class RaceController {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @PostMapping("/start-race")
-    public ResponseEntity<String> startRace(@RequestBody Map<String, String> body) {
+    public ResponseEntity<String> startRace(@RequestBody CarListRequest carListRequest) {
         try {
-            String encrypted = body.get("encrypted");
-            String decryptedJson = rsaUtil.decrypt(encrypted);
-
-            CarListRequest request = objectMapper.readValue(decryptedJson, CarListRequest.class);
+//            String encrypted = body.get("encrypted");
+//            String decryptedJson = rsaUtil.decrypt(encrypted);
+//            CarListRequest request = objectMapper.readValue(body, CarListRequest.class);
 
             new Thread(() -> {
                 try {
-                    raceService.startRace(request.getCars());
+                    raceService.startRace(carListRequest.getCars());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
